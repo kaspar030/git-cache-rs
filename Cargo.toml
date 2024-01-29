@@ -16,3 +16,16 @@ camino = { version = "1.1.6", features = ["serde"] }
 clap = { version = "4.4.18", features = ["cargo", "env", "string"] }
 shellexpand = "3.1.0"
 url = "2.5.0"
+
+[package.metadata.release]
+sign-commit = true
+sign-tag = true
+tag-name = "{{prefix}}{{version}}"
+
+pre-release-replacements = [
+  {file="CHANGELOG.md", search="Unreleased", replace="{{version}}"},
+  {file="CHANGELOG.md", search="\\.\\.\\.HEAD", replace="...{{tag_name}}", exactly=1},
+  {file="CHANGELOG.md", search="ReleaseDate", replace="{{date}}"},
+  {file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n\n## [Unreleased] - ReleaseDate", exactly=1},
+  {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/{{tag_name}}...HEAD", exactly=1},
+]
