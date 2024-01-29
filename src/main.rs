@@ -512,12 +512,4 @@ fn main() -> Result<ExitCode> {
     }
 
     Ok(0.into())
-
-    // git_cache.clone("/tmp/gitter").unwrap();
-    // if !git_cache.is_initialized().unwrap() {
-    //     println!("not initialized, cloning");
-    //     git_cache.mirror("https://github.com/RIOT-OS/RIOT").unwrap();
-    // } else {
-    //     git_cache.update().unwrap();
-    // }
 }
