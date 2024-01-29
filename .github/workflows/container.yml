@@ -18,6 +18,8 @@ jobs:
         codename: [ latest ]
         include:
           - os: ubuntu
+            codename: noble
+          - os: ubuntu
             codename: jammy
           - os: ubuntu
             codename: focal
