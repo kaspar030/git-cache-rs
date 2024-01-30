@@ -111,8 +111,6 @@ impl GitCacheRepo {
             self.repo
                 .git()
                 .arg("clone")
-                .arg("-o")
-                .arg("core.compression=true")
                 .arg("--mirror")
                 .arg(&self.url)
                 .arg(&self.repo.path)
