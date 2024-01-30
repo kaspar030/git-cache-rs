@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.1.1] - 2024-01-30
+
 #### Added
 
 - implemented basic cache repository locking
@@ -16,5 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 29.01.2024
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/0.1.1...HEAD
+[0.1.1]: https://github.com/assert-rs/predicates-rs/compare/0.1.0...0.1.1
 [0.1.0]: https://github.com/kaspar030/laze/releases/tag/0.1.0
