@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+#### Fixed
+
+- don't set "core.compression=true" on mirror repo. Fixes `git < 2.39`.
+
 ## [0.1.1] - 2024-01-30
 
 #### Added
