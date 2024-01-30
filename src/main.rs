@@ -269,6 +269,7 @@ fn clap() -> clap::Command {
         [--filter=<filter> [--also-filter-submodules]]",
                 ),
         )
+        .subcommand(Command::new("init").hide(true))
 }
 
 fn pass_through_args() -> Vec<Arg> {
