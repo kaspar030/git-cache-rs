@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+#### Added
+
+- implemented basic cache repository locking
+
 ## [0.1.0] - 29.01.2024
 
 <!-- next-url -->
