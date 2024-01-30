@@ -1,4 +1,7 @@
-use std::process::{Command, ExitCode};
+use std::{
+    fs::File,
+    process::{Command, ExitCode},
+};
 
 use anyhow::{anyhow, Error, Result};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -101,8 +104,9 @@ impl GitCacheRepo {
         }
     }
 
-    fn mirror(&self) -> Result<()> {
+    fn mirror(&self) -> Result<bool> {
         if !self.repo.is_initialized()? {
+            println!("git-cache: cloning {} into cache...", self.url);
             std::fs::create_dir_all(&self.repo.path)?;
             self.repo
                 .git()
@@ -115,8 +119,11 @@ impl GitCacheRepo {
                 .status()?
                 .success()
                 .true_or(anyhow!("error mirroring repository"))?;
+
+            Ok(true)
+        } else {
+            Ok(false)
         }
-        Ok(())
     }
 
     fn update(&self) -> Result<()> {
@@ -181,12 +188,17 @@ impl GitCacheRepo {
         Ok(target_path.clone())
     }
 
-    fn is_initialized(&self) -> std::result::Result<bool, anyhow::Error> {
-        self.repo.is_initialized()
-    }
+    // fn is_initialized(&self) -> std::result::Result<bool, anyhow::Error> {
+    //     self.repo.is_initialized()
+    // }
 
     fn has_commit(&self, commit: &str) -> std::result::Result<bool, anyhow::Error> {
         self.repo.has_commit(commit)
+    }
+
+    fn lock(&self) -> Result<fd_lock::RwLock<File>> {
+        let lock_path = self.repo.path.with_extension("lock");
+        Ok(fd_lock::RwLock::new(std::fs::File::create(lock_path)?))
     }
 }
 
@@ -468,31 +480,35 @@ fn main() -> Result<ExitCode> {
 
             let mut wanted_commit = None;
 
-            if !cache_repo.is_initialized().unwrap() {
-                println!("git-cache: cloning {repository} into cache...");
-                cache_repo.mirror().unwrap();
-            } else {
-                wanted_commit = matches.get_one::<String>("commit");
+            let mut lock = cache_repo.lock()?;
+            {
+                let _lock = lock.write()?;
+                if !cache_repo.mirror().unwrap() {
+                    wanted_commit = matches.get_one::<String>("commit");
 
-                let try_update =
-                    wanted_commit.is_some_and(|commit| !cache_repo.has_commit(commit).unwrap());
+                    let try_update =
+                        wanted_commit.is_some_and(|commit| !cache_repo.has_commit(commit).unwrap());
 
-                if matches.get_flag("update") || try_update {
-                    println!("git-cache: updating cache for {repository}...");
-                    cache_repo.update().unwrap();
-                }
+                    if matches.get_flag("update") || try_update {
+                        println!("git-cache: updating cache for {repository}...");
+                        cache_repo.update().unwrap();
+                    }
 
-                if let Some(commit) = wanted_commit {
-                    if try_update && !cache_repo.has_commit(commit)? {
-                        println!(
-                            "error: git-cache: {repository} does not contain commit {}",
-                            wanted_commit.unwrap()
-                        );
+                    if let Some(commit) = wanted_commit {
+                        if try_update && !cache_repo.has_commit(commit)? {
+                            println!(
+                                "error: git-cache: {repository} does not contain commit {}",
+                                wanted_commit.unwrap()
+                            );
+                        }
                     }
                 }
-            };
+            }
 
-            cache_repo.clone(target_path.as_str(), matches)?;
+            {
+                let _lock = lock.read()?;
+                cache_repo.clone(target_path.as_str(), matches)?;
+            }
             if let Some(commit) = wanted_commit {
                 let target_repo = GitRepo {
                     path: target_path.clone(),
