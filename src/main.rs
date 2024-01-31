@@ -482,7 +482,7 @@ fn main() -> Result<ExitCode> {
             let mut lock = cache_repo.lock()?;
             {
                 let _lock = lock.write()?;
-                if !cache_repo.mirror().unwrap() {
+                if !cache_repo.mirror()? {
                     wanted_commit = matches.get_one::<String>("commit");
 
                     let try_update =
