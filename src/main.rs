@@ -477,6 +477,9 @@ fn main() -> Result<ExitCode> {
 
             let target_path = cache_repo.target_path(target_path)?;
 
+            std::fs::create_dir_all(&cache_dir)
+                .with_context(|| format!("creating cache base directory {cache_dir}"))?;
+
             let mut wanted_commit = None;
 
             let mut lock = cache_repo.lock()?;
