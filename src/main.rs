@@ -3,7 +3,7 @@ use std::{
     process::{Command, ExitCode},
 };
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, bail, Context as _, Error, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::{crate_version, Arg, ArgAction, ArgMatches, ValueHint};
 
@@ -196,7 +196,10 @@ impl GitCacheRepo {
 
     fn lock(&self) -> Result<fd_lock::RwLock<File>> {
         let lock_path = self.repo.path.with_extension("lock");
-        Ok(fd_lock::RwLock::new(std::fs::File::create(lock_path)?))
+        Ok(fd_lock::RwLock::new(
+            std::fs::File::create(&lock_path)
+                .with_context(|| format!("creating lock file \"{lock_path}\""))?,
+        ))
     }
 }
 
@@ -493,15 +496,12 @@ fn main() -> Result<ExitCode> {
 
                     if matches.get_flag("update") || try_update {
                         println!("git-cache: updating cache for {repository}...");
-                        cache_repo.update().unwrap();
+                        cache_repo.update()?;
                     }
 
                     if let Some(commit) = wanted_commit {
                         if try_update && !cache_repo.has_commit(commit)? {
-                            println!(
-                                "error: git-cache: {repository} does not contain commit {}",
-                                wanted_commit.unwrap()
-                            );
+                            bail!("git-cache: {repository} does not contain commit {commit}");
                         }
                     }
                 }
