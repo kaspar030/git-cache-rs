@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.1.4] - 2024-02-02
+
 #### Fixed
 
 - always create cache folder. This prevents a panic creating a repository
@@ -36,7 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 29.01.2024
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/0.1.3...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/0.1.4...HEAD
+[0.1.4]: https://github.com/assert-rs/predicates-rs/compare/0.1.3...0.1.4
 [0.1.3]: https://github.com/assert-rs/predicates-rs/compare/0.1.2...0.1.3
 [0.1.2]: https://github.com/assert-rs/predicates-rs/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/assert-rs/predicates-rs/compare/0.1.0...0.1.1
