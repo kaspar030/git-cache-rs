@@ -194,7 +194,7 @@ impl GitCacheRepo {
         self.repo.has_commit(commit)
     }
 
-    fn lock(&self) -> Result<fd_lock::RwLock<File>> {
+    fn lockfile(&self) -> Result<fd_lock::RwLock<File>> {
         let lock_path = self.repo.path.with_extension("lock");
         Ok(fd_lock::RwLock::new(
             std::fs::File::create(&lock_path)
@@ -485,7 +485,7 @@ fn main() -> Result<ExitCode> {
 
             let mut wanted_commit = None;
 
-            let mut lock = cache_repo.lock()?;
+            let mut lock = cache_repo.lockfile()?;
             {
                 let _lock = lock.write()?;
                 if !cache_repo.mirror()? {
