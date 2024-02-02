@@ -18,6 +18,10 @@ fd-lock = "4.0.2"
 shellexpand = "3.1.0"
 url = "2.5.0"
 
+[profile.release]
+strip=true
+lto=true
+
 [package.metadata.release]
 sign-commit = true
 sign-tag = true
