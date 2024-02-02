@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+#### Fixed
+
+- always create cache folder. This prevents a panic creating a repository
+  lockfile.
+- added context to some errors
+
 ## [0.1.3] - 2024-01-30
 
 #### Changed
