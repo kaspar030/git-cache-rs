@@ -39,15 +39,16 @@ impl GitRepo {
     }
 
     fn is_initialized(&self) -> Result<bool> {
-        Ok(matches!(
-            self.git()
-                .arg("rev-parse")
-                .arg("--git-dir")
-                .output()?
-                .stdout
-                .as_slice(),
-            b".\n" | b".git\n"
-        ))
+        Ok(self.path.is_dir()
+            && matches!(
+                self.git()
+                    .arg("rev-parse")
+                    .arg("--git-dir")
+                    .output()?
+                    .stdout
+                    .as_slice(),
+                b".\n" | b".git\n"
+            ))
     }
 
     fn has_commit(&self, commit: &str) -> Result<bool> {
