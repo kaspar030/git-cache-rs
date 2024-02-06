@@ -484,14 +484,12 @@ fn main() -> Result<ExitCode> {
             std::fs::create_dir_all(&cache_dir)
                 .with_context(|| format!("creating cache base directory {cache_dir}"))?;
 
-            let mut wanted_commit = None;
+            let wanted_commit = matches.get_one::<String>("commit");
 
             let mut lock = cache_repo.lockfile()?;
             {
                 let _lock = lock.write()?;
                 if !cache_repo.mirror()? {
-                    wanted_commit = matches.get_one::<String>("commit");
-
                     let try_update =
                         wanted_commit.is_some_and(|commit| !cache_repo.has_commit(commit).unwrap());
 
