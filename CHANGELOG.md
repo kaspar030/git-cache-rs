@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+#### Fixed
+
+- don't forget checking out commit on first mirror
+- check if folder exists in `is_initialized()`
+
+#### Changed
+
+- strip & LTO by default
+
 ## [0.1.4] - 2024-02-02
 
 #### Fixed
