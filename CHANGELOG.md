@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.1.5] - 2024-02-06
+
 #### Fixed
 
 - don't forget checking out commit on first mirror
@@ -47,7 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 29.01.2024
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/0.1.4...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/0.1.5...HEAD
+[0.1.5]: https://github.com/assert-rs/predicates-rs/compare/0.1.4...0.1.5
 [0.1.4]: https://github.com/assert-rs/predicates-rs/compare/0.1.3...0.1.4
 [0.1.3]: https://github.com/assert-rs/predicates-rs/compare/0.1.2...0.1.3
 [0.1.2]: https://github.com/assert-rs/predicates-rs/compare/0.1.1...0.1.2
