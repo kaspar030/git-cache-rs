@@ -12,7 +12,7 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.84"
-camino = { version = "1.1.6", features = ["serde"] }
+camino = { version = "1.1.7", features = ["serde"] }
 clap = { version = "4.5.4", features = ["cargo", "env", "string"] }
 fd-lock = "4.0.2"
 shellexpand = "3.1.0"
