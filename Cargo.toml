@@ -11,7 +11,7 @@ license = "Apache-2.0"
 readme = "README.md"
 
 [dependencies]
-anyhow = "1.0.84"
+anyhow = "1.0.86"
 camino = { version = "1.1.7", features = ["serde"] }
 clap = { version = "4.5.4", features = ["cargo", "env", "string"] }
 fd-lock = "4.0.2"
