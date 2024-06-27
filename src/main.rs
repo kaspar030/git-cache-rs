@@ -212,7 +212,7 @@ fn clap() -> clap::Command {
         .about("A git repository cache tool")
         .infer_subcommands(true)
         .arg(
-            Arg::new("cache_dir")
+            Arg::new("git_cache_dir")
                 .short('c')
                 .long("cache-dir")
                 .help("git cache base directory")
@@ -468,8 +468,8 @@ impl CanCloneInto for camino::Utf8Path {
 fn main() -> Result<ExitCode> {
     let matches = clap().get_matches();
 
-    let cache_dir: Utf8PathBuf = Utf8PathBuf::from(&shellexpand::tilde(
-        matches.get_one::<Utf8PathBuf>("cache_dir").unwrap(),
+    let cache_dir = Utf8PathBuf::from(&shellexpand::tilde(
+        matches.get_one::<Utf8PathBuf>("git_cache_dir").unwrap(),
     ));
 
     match matches.subcommand() {
@@ -485,7 +485,7 @@ fn main() -> Result<ExitCode> {
             let target_path = cache_repo.target_path(target_path)?;
 
             std::fs::create_dir_all(&cache_dir)
-                .with_context(|| format!("creating cache base directory {cache_dir}"))?;
+                .with_context(|| format!("creating git cache base directory {cache_dir}"))?;
 
             let mut lock = cache_repo.lockfile()?;
             {
