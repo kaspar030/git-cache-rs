@@ -1,7 +1,7 @@
 # Introduction
 
 **git-cache-rs** is a git helper that allows caching clones in a central folder
-so consequtive clones become faster.
+so consecutive clones become faster.
 
 It works by first cloning into a cache folder (`~/.gitcache` by default), then
 cloning locally out from there. The next time the same repository is cloned, it
