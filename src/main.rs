@@ -476,15 +476,14 @@ fn main() -> Result<ExitCode> {
         Some(("clone", matches)) => {
             let repository = matches.get_one::<String>("repository").unwrap();
             let target_path = matches.get_one::<Utf8PathBuf>("target_path");
+            let wanted_commit = matches.get_one::<String>("commit");
+            let sparse_paths = matches.get_many::<String>("sparse-add");
 
             let cache_repo = GitCacheRepo::new(&cache_dir, repository);
-
             let target_path = cache_repo.target_path(target_path)?;
 
             std::fs::create_dir_all(&cache_dir)
                 .with_context(|| format!("creating cache base directory {cache_dir}"))?;
-
-            let wanted_commit = matches.get_one::<String>("commit");
 
             let mut lock = cache_repo.lockfile()?;
             {
@@ -517,7 +516,7 @@ fn main() -> Result<ExitCode> {
                 target_repo.set_config("advice.detachedHead", "false")?;
                 target_repo.checkout(commit)?;
             }
-            if let Some(sparse_paths) = matches.get_many::<String>("sparse-add") {
+            if let Some(sparse_paths) = sparse_paths {
                 let target_repo = GitRepo {
                     path: target_path.clone(),
                 };
