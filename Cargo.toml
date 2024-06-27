@@ -9,6 +9,7 @@ repository = "https://github.com/kaspar030/git-cache-rs"
 homepage = "https://github.com/kaspar030/git-cache-rs"
 license = "Apache-2.0"
 readme = "README.md"
+include = ["src/**/*", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
 anyhow = "1.0.86"
