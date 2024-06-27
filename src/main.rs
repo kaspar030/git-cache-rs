@@ -82,7 +82,7 @@ impl GitRepo {
 
     fn sparse_checkout(
         &self,
-        sparse_paths: clap::parser::ValuesRef<'_, String>,
+        sparse_paths: Vec<&String>,
     ) -> std::result::Result<(), anyhow::Error> {
         self.git()
             .arg("sparse-checkout")
@@ -477,7 +477,9 @@ fn main() -> Result<ExitCode> {
             let repository = matches.get_one::<String>("repository").unwrap();
             let target_path = matches.get_one::<Utf8PathBuf>("target_path");
             let wanted_commit = matches.get_one::<String>("commit");
-            let sparse_paths = matches.get_many::<String>("sparse-add");
+            let sparse_paths = matches
+                .get_many::<String>("sparse-add")
+                .map(|v| v.into_iter().collect::<Vec<&String>>());
 
             let cache_repo = GitCacheRepo::new(&cache_dir, repository);
             let target_path = cache_repo.target_path(target_path)?;
