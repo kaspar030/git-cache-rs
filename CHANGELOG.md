@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+#### Fixed
+
+- don't chdir into cache repo path on initial clone. This fixes clones from
+  relative paths (`git cache clone ./repo target_path`)
+
 ## [0.2.0] - 2024-06-28
 
 #### Changed
