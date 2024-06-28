@@ -31,6 +31,7 @@ extern crate derive_builder;
 pub struct GitCacheCloner {
     cache_base_dir: Utf8PathBuf,
     repository_url: String,
+    #[builder(default)]
     update: bool,
     #[builder(default)]
     target_path: Option<Utf8PathBuf>,
