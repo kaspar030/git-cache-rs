@@ -191,10 +191,10 @@ impl GitCacheRepo {
         if !self.repo.is_initialized()? {
             println!("git-cache: cloning {} into cache...", self.url);
             std::fs::create_dir_all(&self.repo.path)?;
-            self.repo
-                .git()
+            Command::new("git")
                 .arg("clone")
                 .arg("--mirror")
+                .arg("--")
                 .arg(&self.url)
                 .arg(&self.repo.path)
                 .status()?
