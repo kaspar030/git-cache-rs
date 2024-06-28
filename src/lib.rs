@@ -45,7 +45,9 @@ pub struct GitCacheCloner {
 
 impl GitCacheClonerBuilder {
     pub fn do_clone(&mut self) -> Result<(), Error> {
-        self.build()?.do_clone()
+        self.build()
+            .expect("GitCacheCloner builder correctly set up")
+            .do_clone()
     }
     pub fn extra_clone_args_from_matches(&mut self, matches: &ArgMatches) -> &mut Self {
         self.extra_clone_args(Some(get_pass_through_args(matches)))
