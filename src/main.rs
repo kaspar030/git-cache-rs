@@ -3,6 +3,7 @@ use std::process::ExitCode;
 use anyhow::Result;
 use camino::Utf8PathBuf;
 use clap::crate_version;
+use git_cache::GitCache;
 
 fn clap() -> clap::Command {
     use clap::Command;
@@ -34,16 +35,18 @@ fn main() -> Result<ExitCode> {
             let wanted_commit = matches.get_one::<String>("commit");
             let sparse_paths = matches
                 .get_many::<String>("sparse-add")
-                .map(|v| v.into_iter().collect::<Vec<&String>>());
+                .map(|v| v.into_iter().cloned().collect::<Vec<String>>());
 
-            git_cache::clone(
-                cache_dir,
-                repository.clone(),
-                wanted_commit,
-                matches,
-                target_path,
-                sparse_paths,
-            )?;
+            let git_cache = GitCache::new(cache_dir)?;
+            git_cache
+                .cloner()
+                .commit(wanted_commit.cloned())
+                .extra_clone_args_from_matches(matches)
+                .repository_url(repository.clone())
+                .sparse_paths(sparse_paths)
+                .target_path(target_path)
+                .update(matches.get_flag("update"))
+                .do_clone()?;
         }
         Some(("other", _matches)) => {}
         _ => {}

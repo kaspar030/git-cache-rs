@@ -1,8 +1,103 @@
+use std::ffi::OsStr;
 use std::{fs::File, process::Command};
 
 use anyhow::{anyhow, bail, Context as _, Error, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::{Arg, ArgAction, ArgMatches, ValueHint};
+
+pub struct GitCache {
+    cache_base_dir: Utf8PathBuf,
+}
+
+impl GitCache {
+    pub fn new(cache_base_dir: Utf8PathBuf) -> Result<Self, Error> {
+        std::fs::create_dir_all(&cache_base_dir)
+            .with_context(|| format!("creating git cache base directory {cache_base_dir}"))?;
+
+        Ok(Self { cache_base_dir })
+    }
+
+    pub fn cloner(&self) -> GitCacheClonerBuilder {
+        let mut cloner = GitCacheClonerBuilder::default();
+        cloner.cache_base_dir(self.cache_base_dir.clone());
+        cloner
+    }
+}
+
+#[macro_use]
+extern crate derive_builder;
+
+#[derive(Builder)]
+pub struct GitCacheCloner {
+    cache_base_dir: Utf8PathBuf,
+    repository_url: String,
+    update: bool,
+    #[builder(default)]
+    target_path: Option<Utf8PathBuf>,
+    #[builder(default)]
+    sparse_paths: Option<Vec<String>>,
+    #[builder(default)]
+    commit: Option<String>,
+    #[builder(default)]
+    extra_clone_args: Option<Vec<String>>,
+}
+
+impl GitCacheClonerBuilder {
+    pub fn do_clone(&mut self) -> Result<(), Error> {
+        self.build()?.do_clone()
+    }
+    pub fn extra_clone_args_from_matches(&mut self, matches: &ArgMatches) -> &mut Self {
+        self.extra_clone_args(Some(get_pass_through_args(matches)))
+    }
+}
+
+impl GitCacheCloner {
+    fn do_clone(&self) -> Result<(), Error> {
+        let cache_repo = GitCacheRepo::new(&self.cache_base_dir, &self.repository_url);
+        let target_path = cache_repo.target_path(self.target_path.as_ref())?;
+
+        let repository = &self.repository_url;
+        let wanted_commit = self.commit.as_ref();
+
+        let mut lock = cache_repo.lockfile()?;
+        {
+            let _lock = lock.write()?;
+            if !cache_repo.mirror()? {
+                let try_update =
+                    wanted_commit.is_some_and(|commit| !cache_repo.has_commit(commit).unwrap());
+
+                if self.update || try_update {
+                    println!("git-cache: updating cache for {repository}...");
+                    cache_repo.update()?;
+                }
+
+                if let Some(commit) = wanted_commit {
+                    if try_update && !cache_repo.has_commit(commit)? {
+                        bail!("git-cache: {repository} does not contain commit {commit}");
+                    }
+                }
+            }
+        }
+        {
+            let _lock = lock.read()?;
+            cache_repo.clone(target_path.as_str(), self.extra_clone_args.as_ref())?;
+        }
+        if let Some(commit) = wanted_commit {
+            let target_repo = GitRepo {
+                path: target_path.clone(),
+            };
+            target_repo.set_config("advice.detachedHead", "false")?;
+            target_repo.checkout(commit)?;
+        }
+        if let Some(sparse_paths) = self.sparse_paths.as_ref() {
+            let target_repo = GitRepo {
+                path: target_path.clone(),
+            };
+            target_repo.sparse_checkout(sparse_paths)?;
+        }
+        Ok(())
+    }
+}
 
 pub struct GitRepo {
     path: Utf8PathBuf,
@@ -63,10 +158,11 @@ impl GitRepo {
             .true_or(anyhow!("error checking out commit"))
     }
 
-    fn sparse_checkout(
-        &self,
-        sparse_paths: Vec<&String>,
-    ) -> std::result::Result<(), anyhow::Error> {
+    fn sparse_checkout<I, S>(&self, sparse_paths: I) -> std::result::Result<(), anyhow::Error>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
         self.git()
             .arg("sparse-checkout")
             .arg("set")
@@ -127,11 +223,13 @@ impl GitCacheRepo {
         format!("{}.git", hasher.finish())
     }
 
-    fn clone(&self, target_path: &str, matches: &ArgMatches) -> Result<()> {
+    fn clone(&self, target_path: &str, pass_through_args: Option<&Vec<String>>) -> Result<()> {
         let mut clone_cmd = Command::new("git");
         clone_cmd.arg("clone").arg("--shared");
 
-        apply_pass_through(&mut clone_cmd, matches);
+        if let Some(args) = pass_through_args {
+            clone_cmd.args(args);
+        }
 
         clone_cmd
             .arg("--")
@@ -362,7 +460,8 @@ fn pass_through_args() -> Vec<Arg> {
     args
 }
 
-fn apply_pass_through(clone_cmd: &mut Command, matches: &ArgMatches) {
+fn get_pass_through_args(matches: &ArgMatches) -> Vec<String> {
+    let mut args = Vec::new();
     // w/o arg
     for id in [
         "local",
@@ -389,7 +488,7 @@ fn apply_pass_through(clone_cmd: &mut Command, matches: &ArgMatches) {
     .into_iter()
     {
         if matches.get_flag(id) {
-            clone_cmd.arg(format!("--{id}"));
+            args.push(format!("--{id}"));
         }
     }
 
@@ -414,21 +513,23 @@ fn apply_pass_through(clone_cmd: &mut Command, matches: &ArgMatches) {
     {
         if let Some(occurrences) = matches.get_occurrences::<String>(id) {
             for occurrence in occurrences.flatten() {
-                clone_cmd.arg(format!("--{id}"));
-                clone_cmd.arg(occurrence);
+                args.push(format!("--{id}"));
+                args.push(occurrence.clone());
             }
         }
     }
 
     if let Some(submodules) = matches.get_many::<String>("recurse-submodules") {
         if submodules.len() == 0 && matches.contains_id("recurse-submodules") {
-            clone_cmd.arg("--recurse-submodules");
+            args.push("--recurse-submodules".into());
         } else {
             for submodule in submodules {
-                clone_cmd.arg(format!("--recurse-submodules={submodule}"));
+                args.push(format!("--recurse-submodules={submodule}"));
             }
         }
     }
+
+    args
 }
 
 trait CanCloneInto {
@@ -439,58 +540,6 @@ impl CanCloneInto for camino::Utf8Path {
     fn is_clone_target(&self) -> Result<bool, Error> {
         Ok((!self.exists()) || (self.is_dir() && { self.read_dir()?.next().is_none() }))
     }
-}
-
-pub fn clone(
-    cache_dir: Utf8PathBuf,
-    repository: String,
-    wanted_commit: Option<&String>,
-    matches: &ArgMatches,
-    target_path: Option<Utf8PathBuf>,
-    sparse_paths: Option<Vec<&String>>,
-) -> Result<(), Error> {
-    let cache_repo = GitCacheRepo::new(&cache_dir, &repository);
-    let target_path = cache_repo.target_path(target_path.as_ref())?;
-
-    std::fs::create_dir_all(&cache_dir)
-        .with_context(|| format!("creating git cache base directory {cache_dir}"))?;
-    let mut lock = cache_repo.lockfile()?;
-    {
-        let _lock = lock.write()?;
-        if !cache_repo.mirror()? {
-            let try_update =
-                wanted_commit.is_some_and(|commit| !cache_repo.has_commit(commit).unwrap());
-
-            if matches.get_flag("update") || try_update {
-                println!("git-cache: updating cache for {repository}...");
-                cache_repo.update()?;
-            }
-
-            if let Some(commit) = wanted_commit {
-                if try_update && !cache_repo.has_commit(commit)? {
-                    bail!("git-cache: {repository} does not contain commit {commit}");
-                }
-            }
-        }
-    }
-    {
-        let _lock = lock.read()?;
-        cache_repo.clone(target_path.as_str(), matches)?;
-    }
-    if let Some(commit) = wanted_commit {
-        let target_repo = GitRepo {
-            path: target_path.clone(),
-        };
-        target_repo.set_config("advice.detachedHead", "false")?;
-        target_repo.checkout(commit)?;
-    }
-    if let Some(sparse_paths) = sparse_paths {
-        let target_repo = GitRepo {
-            path: target_path.clone(),
-        };
-        target_repo.sparse_checkout(sparse_paths)?;
-    }
-    Ok(())
 }
 
 trait TrueOr {
