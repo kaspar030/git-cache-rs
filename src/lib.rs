@@ -30,7 +30,10 @@ extern crate derive_builder;
 #[derive(Builder)]
 pub struct GitCacheCloner {
     cache_base_dir: Utf8PathBuf,
+    #[builder(setter(custom))]
     repository_url: String,
+    #[builder(default = "true")]
+    cached: bool,
     #[builder(default)]
     update: bool,
     #[builder(default)]
@@ -44,6 +47,14 @@ pub struct GitCacheCloner {
 }
 
 impl GitCacheClonerBuilder {
+    pub fn repository_url(&mut self, url: String) -> &mut Self {
+        if self.cached.is_none() {
+            self.cached = Some(!repo_is_local(&url));
+        }
+        self.repository_url = Some(url);
+        self
+    }
+
     pub fn do_clone(&mut self) -> Result<(), Error> {
         self.build()
             .expect("GitCacheCloner builder correctly set up")
@@ -54,37 +65,81 @@ impl GitCacheClonerBuilder {
     }
 }
 
+/// returns `true` if the git repo url points to a local path
+///
+/// This function tries to mimic Git's notion of a local repository.
+///
+/// Some things to watch out for:
+/// - this does not take bundles into account
+fn repo_is_local(url: &str) -> bool {
+    if let Ok(url) = url::Url::parse(url) {
+        url.scheme() == "file"
+    } else {
+        (url.starts_with("./") || url.starts_with('/'))
+            || (!url_is_scp_scheme(url))
+            || std::path::Path::new(url).exists()
+    }
+}
+
+fn url_is_scp_scheme(url: &str) -> bool {
+    let at = url.find('@');
+    let colon = url.find(':');
+
+    if let Some(colon_pos) = colon {
+        if let Some(at_pos) = at {
+            if at_pos < colon_pos {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 impl GitCacheCloner {
     fn do_clone(&self) -> Result<(), Error> {
-        let cache_repo = GitCacheRepo::new(&self.cache_base_dir, &self.repository_url);
-        let target_path = cache_repo.target_path(self.target_path.as_ref())?;
-
         let repository = &self.repository_url;
         let wanted_commit = self.commit.as_ref();
+        let target_path;
 
-        let mut lock = cache_repo.lockfile()?;
-        {
-            let _lock = lock.write()?;
-            if !cache_repo.mirror()? {
-                let try_update =
-                    wanted_commit.is_some_and(|commit| !cache_repo.has_commit(commit).unwrap());
+        if self.cached {
+            let cache_repo = GitCacheRepo::new(&self.cache_base_dir, &self.repository_url);
+            target_path = cache_repo.target_path(self.target_path.as_ref())?;
 
-                if self.update || try_update {
-                    println!("git-cache: updating cache for {repository}...");
-                    cache_repo.update()?;
-                }
+            let mut lock = cache_repo.lockfile()?;
+            {
+                let _lock = lock.write()?;
+                if !cache_repo.mirror()? {
+                    let try_update =
+                        wanted_commit.is_some_and(|commit| !cache_repo.has_commit(commit).unwrap());
 
-                if let Some(commit) = wanted_commit {
-                    if try_update && !cache_repo.has_commit(commit)? {
-                        bail!("git-cache: {repository} does not contain commit {commit}");
+                    if self.update || try_update {
+                        println!("git-cache: updating cache for {repository}...");
+                        cache_repo.update()?;
+                    }
+
+                    if let Some(commit) = wanted_commit {
+                        if try_update && !cache_repo.has_commit(commit)? {
+                            bail!("git-cache: {repository} does not contain commit {commit}");
+                        }
                     }
                 }
             }
+            {
+                let _lock = lock.read()?;
+                cache_repo.clone(target_path.as_str(), self.extra_clone_args.as_ref())?;
+            }
+        } else {
+            target_path =
+                target_path_from_url_maybe(&self.repository_url, self.target_path.as_ref())?;
+
+            direct_clone(
+                &self.repository_url,
+                target_path.as_str(),
+                self.extra_clone_args.as_ref(),
+            )?;
         }
-        {
-            let _lock = lock.read()?;
-            cache_repo.clone(target_path.as_str(), self.extra_clone_args.as_ref())?;
-        }
+
         if let Some(commit) = wanted_commit {
             let target_repo = GitRepo {
                 path: target_path.clone(),
@@ -227,20 +282,7 @@ impl GitCacheRepo {
     }
 
     fn clone(&self, target_path: &str, pass_through_args: Option<&Vec<String>>) -> Result<()> {
-        let mut clone_cmd = Command::new("git");
-        clone_cmd.arg("clone").arg("--shared");
-
-        if let Some(args) = pass_through_args {
-            clone_cmd.args(args);
-        }
-
-        clone_cmd
-            .arg("--")
-            .arg(&self.repo.path)
-            .arg(target_path)
-            .status()?
-            .success()
-            .true_or(anyhow!("cloning failed"))?;
+        direct_clone(self.repo.path.as_str(), target_path, pass_through_args)?;
 
         Command::new("git")
             .arg("-C")
@@ -256,19 +298,7 @@ impl GitCacheRepo {
     }
 
     pub fn target_path(&self, target_path: Option<&Utf8PathBuf>) -> Result<Utf8PathBuf> {
-        target_path.map(shellexpand::tilde);
-
-        let url_path = Utf8PathBuf::from(&self.url);
-        let url_path_filename = Utf8PathBuf::from(url_path.file_name().unwrap());
-        let target_path = target_path.unwrap_or(&url_path_filename);
-
-        if !target_path.is_clone_target()? {
-            return Err(anyhow!(
-                    "fatal: destination path '{target_path}' already exists and is not an empty directory."
-                ));
-        }
-
-        Ok(target_path.clone())
+        target_path_from_url_maybe(&self.url, target_path)
     }
 
     // fn is_initialized(&self) -> std::result::Result<bool, anyhow::Error> {
@@ -286,6 +316,45 @@ impl GitCacheRepo {
                 .with_context(|| format!("creating lock file \"{lock_path}\""))?,
         ))
     }
+}
+
+fn direct_clone(
+    repo: &str,
+    target_path: &str,
+    pass_through_args: Option<&Vec<String>>,
+) -> Result<(), Error> {
+    let mut clone_cmd = Command::new("git");
+    clone_cmd.arg("clone").arg("--shared");
+    if let Some(args) = pass_through_args {
+        clone_cmd.args(args);
+    }
+    clone_cmd
+        .arg("--")
+        .arg(repo)
+        .arg(target_path)
+        .status()?
+        .success()
+        .true_or(anyhow!("cloning failed"))?;
+    Ok(())
+}
+
+fn target_path_from_url_maybe(
+    url: &str,
+    target_path: Option<&Utf8PathBuf>,
+) -> Result<Utf8PathBuf, Error> {
+    target_path.map(shellexpand::tilde);
+
+    let url_path = Utf8PathBuf::from(url);
+    let url_path_filename = Utf8PathBuf::from(url_path.file_name().unwrap());
+    let target_path = target_path.unwrap_or(&url_path_filename);
+
+    if !target_path.is_clone_target()? {
+        return Err(anyhow!(
+            "fatal: destination path '{target_path}' already exists and is not an empty directory."
+        ));
+    }
+
+    Ok(target_path.clone())
 }
 
 pub fn clap_git_cache_dir_arg() -> Arg {
