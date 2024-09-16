@@ -12,7 +12,7 @@ readme = "README.md"
 include = ["src/**/*", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
-anyhow = "1.0.88"
+anyhow = "1.0.89"
 camino = { version = "1.1.9", features = ["serde"] }
 clap = { version = "4.5.17", features = ["cargo", "env", "string"] }
 derive_builder = "0.20.1"
