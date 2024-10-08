@@ -15,7 +15,7 @@ include = ["src/**/*", "LICENSE", "README.md", "CHANGELOG.md"]
 anyhow = "1.0.89"
 camino = { version = "1.1.9", features = ["serde"] }
 clap = { version = "4.5.20", features = ["cargo", "env", "string"] }
-derive_builder = "0.20.1"
+derive_builder = "0.20.2"
 fd-lock = "4.0.2"
 shellexpand = "3.1.0"
 url = "2.5.2"
