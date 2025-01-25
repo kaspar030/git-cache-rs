@@ -37,6 +37,20 @@ fn main() -> Result<ExitCode> {
                 .get_many::<String>("sparse-add")
                 .map(|v| v.into_iter().cloned().collect::<Vec<String>>());
 
+            let recurse_submodules = matches
+                .get_many::<String>("recurse-submodules")
+                .map(|v| v.into_iter().cloned().collect::<Vec<String>>());
+
+            let recurse_all_submodules = recurse_submodules
+                .as_ref()
+                .is_some_and(|submodules| submodules.is_empty())
+                && matches.contains_id("recurse-submodules");
+
+            let shallow_submodules = matches.get_flag("shallow-submodules");
+            if shallow_submodules {
+                println!("git-cache: warning: shallow submodule clones not supported");
+            }
+
             let git_cache = GitCache::new(cache_dir)?;
             git_cache
                 .cloner()
@@ -46,6 +60,9 @@ fn main() -> Result<ExitCode> {
                 .sparse_paths(sparse_paths)
                 .target_path(target_path)
                 .update(matches.get_flag("update"))
+                .recurse_submodules(recurse_submodules)
+                .recurse_all_submodules(recurse_all_submodules)
+                .shallow_submodules(shallow_submodules)
                 .do_clone()?;
         }
         Some(("other", _matches)) => {}
