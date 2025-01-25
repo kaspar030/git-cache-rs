@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::io::BufRead;
+use std::sync::atomic::AtomicBool;
 use std::{fs::File, process::Command};
 
 use anyhow::{anyhow, bail, Context as _, Error, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::{Arg, ArgAction, ArgMatches, ValueHint};
+use rayon::{prelude::*, ThreadPoolBuilder};
 
 pub struct GitCache {
     cache_base_dir: Utf8PathBuf,
@@ -52,6 +54,8 @@ pub struct GitCacheCloner {
     commit: Option<String>,
     #[builder(default)]
     extra_clone_args: Option<Vec<String>>,
+    #[builder(default)]
+    jobs: Option<usize>,
 }
 
 impl GitCacheClonerBuilder {
@@ -169,18 +173,30 @@ impl GitCacheCloner {
 
             let cache = self.cache()?;
 
-            for submodule in target_repo.get_submodules(filter)? {
-                println!(
-                    "recursively cloning {} into {}... (todo)",
-                    submodule.url, submodule.path
-                );
-                target_repo.clone_submodule(
-                    submodule,
-                    &cache,
-                    self.shallow_submodules,
-                    self.update,
-                )?;
+            let jobs = self.jobs.unwrap_or(1);
+
+            static RAYON_CONFIGURED: AtomicBool = AtomicBool::new(false);
+
+            if !RAYON_CONFIGURED.swap(true, std::sync::atomic::Ordering::AcqRel) {
+                let _ = ThreadPoolBuilder::new().num_threads(jobs).build_global();
             }
+
+            target_repo
+                .get_submodules(filter)?
+                .par_iter()
+                .map(|submodule| {
+                    println!(
+                        "git-cache: cloning {} into {}...",
+                        submodule.url, submodule.path
+                    );
+                    target_repo.clone_submodule(
+                        submodule,
+                        &cache,
+                        self.shallow_submodules,
+                        self.update,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
         };
 
         Ok(())
@@ -342,7 +358,7 @@ impl GitRepo {
 
     fn clone_submodule(
         &self,
-        submodule: SubmoduleSpec,
+        submodule: &SubmoduleSpec,
         cache: &GitCache,
         shallow_submodules: bool,
         update: bool,
@@ -352,11 +368,11 @@ impl GitRepo {
         let mut cloner = cache.cloner();
 
         cloner
-            .repository_url(submodule.url)
+            .repository_url(submodule.url.clone())
             .target_path(Some(submodule_path))
             .recurse_all_submodules(true)
             .shallow_submodules(shallow_submodules)
-            .commit(Some(submodule.commit))
+            .commit(Some(submodule.commit.clone()))
             .update(update);
 
         // if let Some(branch) = submodule.branch {
@@ -582,6 +598,14 @@ pub fn clap_clone_command(name: &'static str) -> clap::Command {
                 .overrides_with("shallow-submodules")
                 .help("don't shallow-clone submodules"),
         )
+        .arg(
+            Arg::new("jobs")
+                .long("jobs")
+                .short('j')
+                .help("The number of submodules fetched at the same time.")
+                .num_args(1)
+                .value_parser(clap::value_parser!(usize)),
+        )
         .args(pass_through_args())
         .after_help(
             "These regular \"git clone\" options are passed through:\n
@@ -640,7 +664,6 @@ fn pass_through_args() -> Vec<Arg> {
     for (short, long) in [
         ('b', "branch"),
         ('c', "config"),
-        ('j', "jobs"),
         ('o', "origin"),
         ('u', "upload-pack"),
     ]
@@ -732,7 +755,6 @@ fn get_pass_through_args(matches: &ArgMatches) -> Vec<String> {
         "config",
         "depth",
         "filter",
-        "jobs",
         "origin",
         "reference",
         "reference-if-able",

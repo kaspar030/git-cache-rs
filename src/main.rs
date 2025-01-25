@@ -51,6 +51,8 @@ fn main() -> Result<ExitCode> {
                 println!("git-cache: warning: shallow submodule clones not supported");
             }
 
+            let jobs = matches.get_one::<usize>("jobs").copied();
+
             let git_cache = GitCache::new(cache_dir)?;
             git_cache
                 .cloner()
@@ -63,6 +65,7 @@ fn main() -> Result<ExitCode> {
                 .recurse_submodules(recurse_submodules)
                 .recurse_all_submodules(recurse_all_submodules)
                 .shallow_submodules(shallow_submodules)
+                .jobs(jobs)
                 .do_clone()?;
         }
         Some(("other", _matches)) => {}
