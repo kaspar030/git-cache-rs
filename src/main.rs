@@ -37,6 +37,31 @@ fn main() -> Result<ExitCode> {
                 .get_many::<String>("sparse-add")
                 .map(|v| v.into_iter().cloned().collect::<Vec<String>>());
 
+            let recurse_submodules = matches
+                .get_many::<String>("recurse-submodules")
+                .map(|v| v.into_iter().cloned().collect::<Vec<String>>());
+
+            let recurse_all_submodules = recurse_submodules
+                .as_ref()
+                .is_some_and(|submodules| submodules.is_empty())
+                && matches.contains_id("recurse-submodules");
+
+            let shallow_submodules = matches.get_flag("shallow-submodules");
+            if shallow_submodules {
+                println!("git-cache: warning: shallow submodule clones not supported");
+            }
+
+            let mut jobs = matches.get_one::<usize>("jobs").copied();
+
+            if jobs.is_none() && matches.contains_id("recurse-submodules") {
+                // use "submodule.fetchJobs" from global git configuration
+                let git_config = gix_config::File::from_globals()?;
+                jobs = git_config
+                    .value::<gix_config::Integer>("submodule.fetchJobs")
+                    .ok()
+                    .map(|v| v.value as usize);
+            }
+
             let git_cache = GitCache::new(cache_dir)?;
             git_cache
                 .cloner()
@@ -46,6 +71,10 @@ fn main() -> Result<ExitCode> {
                 .sparse_paths(sparse_paths)
                 .target_path(target_path)
                 .update(matches.get_flag("update"))
+                .recurse_submodules(recurse_submodules)
+                .recurse_all_submodules(recurse_all_submodules)
+                .shallow_submodules(shallow_submodules)
+                .jobs(jobs)
                 .do_clone()?;
         }
         Some(("other", _matches)) => {}
