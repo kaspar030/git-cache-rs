@@ -51,7 +51,16 @@ fn main() -> Result<ExitCode> {
                 println!("git-cache: warning: shallow submodule clones not supported");
             }
 
-            let jobs = matches.get_one::<usize>("jobs").copied();
+            let mut jobs = matches.get_one::<usize>("jobs").copied();
+
+            if jobs.is_none() && matches.contains_id("recurse-submodules") {
+                // use "submodule.fetchJobs" from global git configuration
+                let git_config = gix_config::File::from_globals()?;
+                jobs = git_config
+                    .value::<gix_config::Integer>("submodule.fetchJobs")
+                    .ok()
+                    .map(|v| v.value as usize);
+            }
 
             let git_cache = GitCache::new(cache_dir)?;
             git_cache
