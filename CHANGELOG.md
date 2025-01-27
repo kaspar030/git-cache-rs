@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.2.4] - 2025-01-27
+
 - implement recursive submodule cloning from cache
 
 ## [0.2.3] - 2024-07-01
@@ -72,7 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 29.01.2024
 
 <!-- next-url -->
-[Unreleased]: https://github.com/kaspar030/git-cache-rs/compare/0.2.3...HEAD
+[Unreleased]: https://github.com/kaspar030/git-cache-rs/compare/0.2.4...HEAD
+[0.2.4]: https://github.com/kaspar030/git-cache-rs/compare/0.2.3...0.2.4
 [0.2.3]: https://github.com/kaspar030/git-cache-rs/compare/0.2.2...0.2.3
 [0.2.2]: https://github.com/kaspar030/git-cache-rs/compare/0.2.1...0.2.2
 [0.2.1]: https://github.com/kaspar030/git-cache-rs/compare/0.2.0...0.2.1

@@ -321,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "git-cache"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "camino",
