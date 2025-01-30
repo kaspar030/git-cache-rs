@@ -3,6 +3,7 @@ name = "git-cache"
 version = "0.2.4"
 edition = "2021"
 authors = ["Kaspar Schleiser <kaspar@schleiser.de>"]
+rust-version = "1.81.0" # `home` crate
 
 description = "A git clone cache"
 repository = "https://github.com/kaspar030/git-cache-rs"
