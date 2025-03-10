@@ -15,7 +15,7 @@ include = ["src/**/*", "LICENSE", "README.md", "CHANGELOG.md"]
 [dependencies]
 anyhow = "1.0.97"
 camino = { version = "1.1.9", features = ["serde"] }
-clap = { version = "4.5.31", features = ["cargo", "env", "string"] }
+clap = { version = "4.5.32", features = ["cargo", "env", "string"] }
 derive_builder = "0.20.2"
 fd-lock = "4.0.4"
 gix-config = "0.43.0"
