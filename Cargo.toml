@@ -17,7 +17,7 @@ anyhow = "1.0.97"
 camino = { version = "1.1.9", features = ["serde"] }
 clap = { version = "4.5.31", features = ["cargo", "env", "string"] }
 derive_builder = "0.20.2"
-fd-lock = "4.0.3"
+fd-lock = "4.0.4"
 gix-config = "0.43.0"
 rayon = "1.10.0"
 shellexpand = "3.1.0"
