@@ -14,6 +14,7 @@ fn clap() -> clap::Command {
         .infer_subcommands(true)
         .arg(git_cache::clap_git_cache_dir_arg())
         .subcommand(git_cache::clap_clone_command("clone"))
+        .subcommand(git_cache::clap_prefetch_command("prefetch"))
         .subcommand(
             // this is a noop, we keep it for backwards compatibility with the
             // previous shell implementation
@@ -76,6 +77,35 @@ fn main() -> Result<ExitCode> {
                 .shallow_submodules(shallow_submodules)
                 .jobs(jobs)
                 .do_clone()?;
+        }
+        Some(("prefetch", matches)) => {
+            let repositories = matches
+                .get_many::<String>("repositories")
+                .map(|v| v.into_iter().cloned().collect::<Vec<String>>())
+                .unwrap_or_default();
+
+            let recurse_submodules = matches.get_flag("recurse-submodules");
+            let update = matches.get_flag("update");
+
+            let mut jobs = matches.get_one::<usize>("jobs").copied();
+
+            if jobs.is_none() && matches.contains_id("recurse-submodules") {
+                // use "submodule.fetchJobs" from global git configuration
+                let git_config = gix_config::File::from_globals()?;
+                jobs = git_config
+                    .value::<gix_config::Integer>("submodule.fetchJobs")
+                    .ok()
+                    .map(|v| v.value as usize);
+            }
+
+            let git_cache = GitCache::new(cache_dir)?;
+            git_cache
+                .prefetcher()
+                .jobs(jobs)
+                .repository_urls(repositories)
+                .update(update)
+                .recurse_all_submodules(recurse_submodules)
+                .do_prefetch()?;
         }
         Some(("other", _matches)) => {}
         _ => {}
