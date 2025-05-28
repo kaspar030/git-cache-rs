@@ -2,15 +2,44 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::io::BufRead;
 use std::sync::atomic::AtomicBool;
+use std::thread;
 use std::{fs::File, process::Command};
 
 use anyhow::{anyhow, bail, Context as _, Error, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::{Arg, ArgAction, ArgMatches, ValueHint};
+use crossbeam::channel::Sender;
+use gix_config::file::init::Options;
+use gix_config::file::Metadata;
 use rayon::{prelude::*, ThreadPoolBuilder};
 
 pub struct GitCache {
     cache_base_dir: Utf8PathBuf,
+}
+
+pub struct ScpScheme<'a> {
+    _user: &'a str,
+    host: &'a str,
+    path: &'a str,
+}
+
+impl<'a> TryFrom<&'a str> for ScpScheme<'a> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &'a str) -> std::result::Result<Self, Self::Error> {
+        if let Some((at_pos, colon_pos)) = url_split_scp_scheme(value) {
+            let (_user, rest) = value.split_at(at_pos);
+            let (host, path) = rest.split_at(colon_pos - at_pos);
+
+            // splitting like above keeps the split character (`@` and `:`), so chop that off, too.
+            let (_, host) = host.split_at(1);
+            let (_, path) = path.split_at(1);
+
+            Ok(ScpScheme { _user, host, path })
+        } else {
+            Err(anyhow!("url does not parse as git scp scheme"))
+        }
+    }
 }
 
 impl GitCache {
@@ -25,6 +54,12 @@ impl GitCache {
         let mut cloner = GitCacheClonerBuilder::default();
         cloner.cache_base_dir(self.cache_base_dir.clone());
         cloner
+    }
+
+    pub fn prefetcher(&self) -> GitCachePrefetcherBuilder {
+        let mut prefetcher = GitCachePrefetcherBuilder::default();
+        prefetcher.cache_base_dir(self.cache_base_dir.clone());
+        prefetcher
     }
 }
 
@@ -93,19 +128,22 @@ fn repo_is_local(url: &str) -> bool {
     }
 }
 
-fn url_is_scp_scheme(url: &str) -> bool {
+fn url_split_scp_scheme(url: &str) -> Option<(usize, usize)> {
     let at = url.find('@');
     let colon = url.find(':');
 
     if let Some(colon_pos) = colon {
         if let Some(at_pos) = at {
             if at_pos < colon_pos {
-                return true;
+                return Some((at_pos, colon_pos));
             }
         }
     }
+    None
+}
 
-    false
+fn url_is_scp_scheme(url: &str) -> bool {
+    url_split_scp_scheme(url).is_some()
 }
 
 impl GitCacheCloner {
@@ -198,6 +236,111 @@ impl GitCacheCloner {
                 })
                 .collect::<Result<Vec<_>, _>>()?;
         };
+
+        Ok(())
+    }
+
+    pub fn cache(&self) -> Result<GitCache, anyhow::Error> {
+        GitCache::new(self.cache_base_dir.clone())
+    }
+}
+
+#[derive(Builder)]
+#[builder(build_fn(validate = "Self::validate"))]
+pub struct GitCachePrefetcher {
+    cache_base_dir: Utf8PathBuf,
+    repository_urls: Vec<String>,
+    #[builder(default)]
+    update: bool,
+    #[builder(default)]
+    recurse_all_submodules: bool,
+    #[builder(default)]
+    jobs: Option<usize>,
+}
+
+impl GitCachePrefetcherBuilder {
+    pub fn validate(&self) -> Result<(), String> {
+        if let Some(urls) = &self.repository_urls {
+            for url in urls {
+                if repo_is_local(&url) {
+                    return Err(format!(
+                        "can only cache remote repositories, '{url}' is local"
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn do_prefetch(&mut self) -> Result<(), Error> {
+        self.build()
+            .expect("GitCachePrefetcher builder correctly set up")
+            .do_prefetch()
+    }
+}
+
+enum Prefetch {
+    Done,
+    Url(String),
+}
+
+impl GitCachePrefetcher {
+    fn do_prefetch(&self) -> Result<(), Error> {
+        let (sender, receiver) = crossbeam::channel::unbounded::<String>();
+        let (sender2, receiver2) = crossbeam::channel::unbounded::<Prefetch>();
+
+        let mut handles = Vec::new();
+
+        let n_workers = self.jobs.unwrap_or(1);
+
+        for _ in 0..n_workers {
+            let r = receiver.clone();
+            let cache_base_dir = self.cache_base_dir.clone();
+            let recurse = self.recurse_all_submodules;
+            let update = self.update;
+            let sender2 = sender2.clone();
+
+            let handle = thread::spawn(move || {
+                for repository_url in r.iter() {
+                    if let Err(e) =
+                        prefetch_url(&repository_url, &cache_base_dir, update, recurse, &sender2)
+                    {
+                        println!("git-cache: error prefetching {repository_url}: {e}");
+                    }
+                }
+            });
+            handles.push(handle);
+        }
+
+        for repository_url in &self.repository_urls {
+            let _ = sender2.send(Prefetch::Url(repository_url.clone()));
+        }
+
+        let mut left = 0usize;
+        let mut total = 0;
+        for prefetch in receiver2 {
+            match prefetch {
+                Prefetch::Done => left -= 1,
+                Prefetch::Url(url) => {
+                    left += 1;
+                    total += 1;
+                    let _ = sender.send(url);
+                }
+            }
+            if left == 0 {
+                break;
+            }
+        }
+
+        // Close the channel
+        drop(sender);
+
+        // Wait for all threads to finish
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        println!("git-cache: finished pre-fetching {total} repositories.");
 
         Ok(())
     }
@@ -318,8 +461,6 @@ impl GitRepo {
 
         let submodule_commits = self.submodule_commits()?;
 
-        println!("{:?}", submodule_commits);
-
         let mut submodules = Vec::new();
         for module in gitmodules.unwrap() {
             let path = module.body().value("path");
@@ -401,10 +542,9 @@ impl GitRepo {
 impl GitCacheRepo {
     pub fn new(base_path: &Utf8Path, url: &str) -> Self {
         let mut path = base_path.to_path_buf();
-        path.push(Self::url_to_slug(url));
-        let cache_path = Utf8PathBuf::from(&path);
+        path.push(Self::repo_path_from_url(url));
         Self {
-            repo: GitRepo { path: cache_path },
+            repo: GitRepo { path },
             url: url.to_string(),
         }
     }
@@ -439,13 +579,21 @@ impl GitCacheRepo {
             .true_or(anyhow!("error updating repository"))
     }
 
-    fn url_to_slug(url: &str) -> String {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
+    // # Panics
+    // This panics when called on an invalid or local URL, which shouldn't happen.
+    fn repo_path_from_url(url: &str) -> Utf8PathBuf {
+        let mut path = if let Ok(url) = url::Url::parse(url) {
+            assert!(url.scheme() != "file");
+            let (_, path) = url.path().split_at(1);
+            Utf8PathBuf::from(url.host_str().unwrap()).join(path)
+        } else if let Ok(scp_scheme) = ScpScheme::try_from(url) {
+            Utf8PathBuf::from(scp_scheme.host).join(scp_scheme.path)
+        } else {
+            unreachable!("shouldn't be here");
+        };
+        path.set_extension("git");
 
-        let mut hasher = DefaultHasher::new();
-        url.hash(&mut hasher);
-        format!("{}.git", hasher.finish())
+        path
     }
 
     fn clone(&self, target_path: &str, pass_through_args: Option<&Vec<String>>) -> Result<()> {
@@ -477,11 +625,37 @@ impl GitCacheRepo {
     }
 
     fn lockfile(&self) -> Result<fd_lock::RwLock<File>> {
-        let lock_path = self.repo.path.with_extension("lock");
+        let base_path = self.repo.path.parent().unwrap();
+        std::fs::create_dir_all(&base_path)
+            .with_context(|| format!("creating repo base path '{base_path}'"))?;
+
+        let lock_path = self.repo.path.with_extension("git.lock");
         Ok(fd_lock::RwLock::new(
             std::fs::File::create(&lock_path)
                 .with_context(|| format!("creating lock file \"{lock_path}\""))?,
         ))
+    }
+
+    fn get_submodules(&self) -> std::result::Result<Vec<String>, anyhow::Error> {
+        let output = self
+            .repo
+            .git()
+            .arg("show")
+            .arg("HEAD:.gitmodules")
+            .output()?;
+
+        let data = output.stdout;
+        let gitconfig =
+            gix_config::File::from_bytes_no_includes(&data, Metadata::api(), Options::default())?;
+        let gitmodules = gitconfig.sections_by_name("submodule");
+
+        if let Some(gitmodules) = gitmodules {
+            Ok(gitmodules
+                .filter_map(|submodule| submodule.body().value("url").map(|cow| cow.to_string()))
+                .collect())
+        } else {
+            return Ok(vec![]);
+        }
     }
 }
 
@@ -502,6 +676,41 @@ fn direct_clone(
         .status()?
         .success()
         .true_or(anyhow!("cloning failed"))?;
+    Ok(())
+}
+
+fn prefetch_url(
+    repository_url: &str,
+    cache_base_dir: &Utf8Path,
+    update: bool,
+    recurse: bool,
+    sender: &Sender<Prefetch>,
+) -> Result<(), Error> {
+    scopeguard::defer! {
+        let _ = sender.send(Prefetch::Done);
+    }
+
+    let cache_repo = GitCacheRepo::new(cache_base_dir, repository_url);
+
+    let mut lock = cache_repo.lockfile()?;
+    {
+        let _lock = lock.write()?;
+        if !cache_repo.mirror()? {
+            if update {
+                println!("git-cache: updating cache for {repository_url}...");
+                cache_repo.update()?;
+            }
+        }
+    }
+
+    if recurse {
+        let _lock = lock.read()?;
+        for url in cache_repo.get_submodules()? {
+            println!("git-cache: {repository_url} getting submodule: {url}");
+            let _ = sender.send(Prefetch::Url(url));
+        }
+    }
+
     Ok(())
 }
 
@@ -617,6 +826,40 @@ pub fn clap_clone_command(name: &'static str) -> clap::Command {
         [--recurse-submodules[=<pathspec>]] [--[no-]shallow-submodules]
         [--[no-]remote-submodules] [--jobs <n>] [--sparse] [--[no-]reject-shallow]
         [--filter=<filter> [--also-filter-submodules]]",
+        )
+}
+
+pub fn clap_prefetch_command(name: &'static str) -> clap::Command {
+    use clap::Command;
+    Command::new(name)
+        .about("pre-fetch repositories into the cache")
+        .arg(
+            Arg::new("repositories")
+                .help("repositories to prefetch")
+                .required(true)
+                .num_args(1..),
+        )
+        .arg(
+            Arg::new("update")
+                .short('U')
+                .long("update")
+                .action(ArgAction::SetTrue)
+                .help("force update of already cached repo(s)"),
+        )
+        .arg(
+            Arg::new("recurse-submodules")
+                .long("recurse-submodules")
+                .short('r')
+                .action(ArgAction::SetTrue)
+                .help("recursively prefetch submodules"),
+        )
+        .arg(
+            Arg::new("jobs")
+                .long("jobs")
+                .short('j')
+                .help("The number of reposititories fetched at the same time.")
+                .num_args(1)
+                .value_parser(clap::value_parser!(usize)),
         )
 }
 
