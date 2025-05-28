@@ -21,6 +21,7 @@ derive_builder = "0.20.2"
 fd-lock = "4.0.4"
 gix-config = "0.45.1"
 rayon = "1.10.0"
+scopeguard = "1.2.0"
 shellexpand = "3.1.1"
 url = "2.5.4"
 

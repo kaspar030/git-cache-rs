@@ -8,6 +8,9 @@ use std::{fs::File, process::Command};
 use anyhow::{anyhow, bail, Context as _, Error, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::{Arg, ArgAction, ArgMatches, ValueHint};
+use crossbeam::channel::Sender;
+use gix_config::file::init::Options;
+use gix_config::file::Metadata;
 use rayon::{prelude::*, ThreadPoolBuilder};
 
 pub struct GitCache {
@@ -279,24 +282,49 @@ impl GitCachePrefetcherBuilder {
 impl GitCachePrefetcher {
     fn do_prefetch(&self) -> Result<(), Error> {
         let (sender, receiver) = crossbeam::channel::unbounded::<String>();
+        let (sender2, receiver2) = crossbeam::channel::unbounded::<String>();
 
         let mut handles = Vec::new();
-        for _ in 0..self.jobs.unwrap_or(1) {
+
+        let n_workers = self.jobs.unwrap_or(1);
+
+        for _ in 0..n_workers {
             let r = receiver.clone();
             let cache_base_dir = self.cache_base_dir.clone();
             let recurse = self.recurse_all_submodules;
             let update = self.update;
+            let sender2 = sender2.clone();
 
             let handle = thread::spawn(move || {
                 for repository_url in r.iter() {
-                    prefetch_url(&repository_url, &cache_base_dir, update, recurse).unwrap();
+                    if let Err(e) =
+                        prefetch_url(&repository_url, &cache_base_dir, update, recurse, &sender2)
+                    {
+                        println!("git-cache: error prefetching {repository_url}: {e}");
+                    }
                 }
             });
             handles.push(handle);
         }
 
         for repository_url in &self.repository_urls {
-            sender.send(repository_url.clone()).unwrap();
+            sender2.send(repository_url.clone()).unwrap();
+        }
+
+        let mut left = 0usize;
+        let mut total = 0;
+        for repository_url in receiver2 {
+            match repository_url.as_str() {
+                "DONE" => left -= 1,
+                _ => {
+                    left += 1;
+                    total += 1;
+                    let _ = sender.send(repository_url);
+                }
+            }
+            if left == 0 {
+                break;
+            }
         }
 
         // Close the channel
@@ -306,6 +334,8 @@ impl GitCachePrefetcher {
         for handle in handles {
             handle.join().unwrap();
         }
+
+        println!("git-cache: finished pre-fetching {total} repositories.");
 
         Ok(())
     }
@@ -425,8 +455,6 @@ impl GitRepo {
         }
 
         let submodule_commits = self.submodule_commits()?;
-
-        println!("{:?}", submodule_commits);
 
         let mut submodules = Vec::new();
         for module in gitmodules.unwrap() {
@@ -602,6 +630,28 @@ impl GitCacheRepo {
                 .with_context(|| format!("creating lock file \"{lock_path}\""))?,
         ))
     }
+
+    fn get_submodules(&self) -> std::result::Result<Vec<String>, anyhow::Error> {
+        let output = self
+            .repo
+            .git()
+            .arg("show")
+            .arg("HEAD:.gitmodules")
+            .output()?;
+
+        let data = output.stdout;
+        let gitconfig =
+            gix_config::File::from_bytes_no_includes(&data, Metadata::api(), Options::default())?;
+        let gitmodules = gitconfig.sections_by_name("submodule");
+
+        if let Some(gitmodules) = gitmodules {
+            Ok(gitmodules
+                .filter_map(|submodule| submodule.body().value("url").map(|cow| cow.to_string()))
+                .collect())
+        } else {
+            return Ok(vec![]);
+        }
+    }
 }
 
 fn direct_clone(
@@ -629,7 +679,12 @@ fn prefetch_url(
     cache_base_dir: &Utf8Path,
     update: bool,
     recurse: bool,
+    sender: &Sender<String>,
 ) -> Result<(), Error> {
+    scopeguard::defer! {
+        let _ = sender.send("DONE".to_string());
+    }
+
     let cache_repo = GitCacheRepo::new(cache_base_dir, repository_url);
 
     let mut lock = cache_repo.lockfile()?;
@@ -644,8 +699,10 @@ fn prefetch_url(
     }
 
     if recurse {
-        for submodule in cache_repo.repo.get_submodules(None)? {
-            println!("git-cache: submodule: {}", submodule.url);
+        let _lock = lock.read()?;
+        for url in cache_repo.get_submodules()? {
+            println!("git-cache: {repository_url} getting submodule: {url}");
+            let _ = sender.send(url);
         }
     }
 
