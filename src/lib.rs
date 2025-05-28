@@ -279,10 +279,15 @@ impl GitCachePrefetcherBuilder {
     }
 }
 
+enum Prefetch {
+    Done,
+    Url(String),
+}
+
 impl GitCachePrefetcher {
     fn do_prefetch(&self) -> Result<(), Error> {
         let (sender, receiver) = crossbeam::channel::unbounded::<String>();
-        let (sender2, receiver2) = crossbeam::channel::unbounded::<String>();
+        let (sender2, receiver2) = crossbeam::channel::unbounded::<Prefetch>();
 
         let mut handles = Vec::new();
 
@@ -308,18 +313,18 @@ impl GitCachePrefetcher {
         }
 
         for repository_url in &self.repository_urls {
-            sender2.send(repository_url.clone()).unwrap();
+            let _ = sender2.send(Prefetch::Url(repository_url.clone()));
         }
 
         let mut left = 0usize;
         let mut total = 0;
-        for repository_url in receiver2 {
-            match repository_url.as_str() {
-                "DONE" => left -= 1,
-                _ => {
+        for prefetch in receiver2 {
+            match prefetch {
+                Prefetch::Done => left -= 1,
+                Prefetch::Url(url) => {
                     left += 1;
                     total += 1;
-                    let _ = sender.send(repository_url);
+                    let _ = sender.send(url);
                 }
             }
             if left == 0 {
@@ -679,10 +684,10 @@ fn prefetch_url(
     cache_base_dir: &Utf8Path,
     update: bool,
     recurse: bool,
-    sender: &Sender<String>,
+    sender: &Sender<Prefetch>,
 ) -> Result<(), Error> {
     scopeguard::defer! {
-        let _ = sender.send("DONE".to_string());
+        let _ = sender.send(Prefetch::Done);
     }
 
     let cache_repo = GitCacheRepo::new(cache_base_dir, repository_url);
@@ -702,7 +707,7 @@ fn prefetch_url(
         let _lock = lock.read()?;
         for url in cache_repo.get_submodules()? {
             println!("git-cache: {repository_url} getting submodule: {url}");
-            let _ = sender.send(url);
+            let _ = sender.send(Prefetch::Url(url));
         }
     }
 
