@@ -9,6 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### 🚀 Features
+
+- Add `prefetch` command
+
+### 🐛 Bug Fixes
+
+- Actually implement recursive pre-fetching
+
+### 💼 Other
+
+- *(deps)* Bump anyhow from 1.0.97 to 1.0.98
+- *(deps)* Bump shellexpand from 3.1.0 to 3.1.1
+- *(deps)* Bump clap from 4.5.36 to 4.5.37
+- *(deps)* Bump gix-config from 0.44.0 to 0.45.0
+- *(deps)* Bump gix-config from 0.45.0 to 0.45.1
+- *(deps)* Bump clap from 4.5.38 to 4.5.39
+- *(deps)* Bump camino from 1.1.9 to 1.1.10
+- *(deps)* Bump clap from 4.5.39 to 4.5.40
+- *(deps)* Bump clap from 4.5.40 to 4.5.41
+- *(deps)* Bump gix-config from 0.45.1 to 0.46.0
+- *(deps)* Bump clap from 4.5.41 to 4.5.42
+- *(deps)* Bump clap from 4.5.42 to 4.5.43
+- *(deps)* Bump camino from 1.1.10 to 1.1.11
+- *(deps)* Bump clap from 4.5.43 to 4.5.44
+- *(deps)* Bump clap from 4.5.44 to 4.5.45
+- *(deps)* Bump anyhow from 1.0.98 to 1.0.99
+- *(deps)* Bump rayon from 1.10.0 to 1.11.0
+- *(deps)* Bump url from 2.5.4 to 2.5.6
+- *(deps)* Bump url from 2.5.6 to 2.5.7
+- *(deps)* Bump camino from 1.1.11 to 1.1.12
+- *(deps)* Bump clap from 4.5.45 to 4.5.47
+- *(deps)* Bump clap from 4.5.47 to 4.5.48
+- *(deps)* Bump anyhow from 1.0.99 to 1.0.100
+- *(deps)* Bump clap from 4.5.48 to 4.5.49
+
+### 🚜 Refactor
+
+- Use enum instead of string matching for prefetch channel
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump workflow versions
+- Bump deps. use rust 1.82 for buster containers
+
 ## [0.2.5] - 2025-04-13
 
 ### Changed
