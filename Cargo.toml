@@ -15,7 +15,7 @@ include = ["src/**/*", "LICENSE", "README.md", "CHANGELOG.md"]
 [dependencies]
 anyhow = "1.0.100"
 camino = { version = "1.1.12", features = ["serde"] }
-clap = { version = "4.5.49", features = ["cargo", "env", "string"] }
+clap = { version = "4.5.50", features = ["cargo", "env", "string"] }
 crossbeam = "0.8.4"
 derive_builder = "0.20.2"
 fd-lock = "4.0.4"
