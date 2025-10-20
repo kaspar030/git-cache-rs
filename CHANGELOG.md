@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.2.6] - 2025-10-20
+
 ### 🚀 Features
 
 - Add `prefetch` command
@@ -124,7 +126,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 29.01.2024
 
 <!-- next-url -->
-[Unreleased]: https://github.com/kaspar030/git-cache-rs/compare/0.2.5...HEAD
+[Unreleased]: https://github.com/kaspar030/git-cache-rs/compare/0.2.6...HEAD
+[0.2.6]: https://github.com/kaspar030/git-cache-rs/compare/0.2.5...0.2.6
 
 [0.2.5]: https://github.com/kaspar030/git-cache-rs/compare/0.2.4...0.2.5
 [0.2.4]: https://github.com/kaspar030/git-cache-rs/compare/0.2.3...0.2.4
