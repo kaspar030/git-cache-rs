@@ -19,7 +19,7 @@ clap = { version = "4.5.50", features = ["cargo", "env", "string"] }
 crossbeam = "0.8.4"
 derive_builder = "0.20.2"
 fd-lock = "4.0.4"
-gix-config = "0.46.0"
+gix-config = "0.47.1"
 rayon = "1.11.0"
 scopeguard = "1.2.0"
 shellexpand = "3.1.1"
