@@ -3,7 +3,7 @@ name = "git-cache"
 version = "0.2.6"
 edition = "2021"
 authors = ["Kaspar Schleiser <kaspar@schleiser.de>"]
-rust-version = "1.81.0" # `home` crate
+rust-version = "1.82.0"                              # `gix-config` crate
 
 description = "A git clone cache"
 repository = "https://github.com/kaspar030/git-cache-rs"
@@ -26,8 +26,8 @@ shellexpand = "3.1.1"
 url = "2.5.8"
 
 [profile.release]
-strip=true
-lto=true
+strip = true
+lto = true
 
 [package.metadata.release]
 sign-commit = true
@@ -35,9 +35,9 @@ sign-tag = true
 tag-name = "{{prefix}}{{version}}"
 
 pre-release-replacements = [
-  {file="CHANGELOG.md", search="Unreleased", replace="{{version}}"},
-  {file="CHANGELOG.md", search="\\.\\.\\.HEAD", replace="...{{tag_name}}", exactly=1},
-  {file="CHANGELOG.md", search="ReleaseDate", replace="{{date}}"},
-  {file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n\n## [Unreleased] - ReleaseDate", exactly=1},
-  {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://github.com/kaspar030/git-cache-rs/compare/{{tag_name}}...HEAD", exactly=1},
+  { file = "CHANGELOG.md", search = "Unreleased", replace = "{{version}}" },
+  { file = "CHANGELOG.md", search = "\\.\\.\\.HEAD", replace = "...{{tag_name}}", exactly = 1 },
+  { file = "CHANGELOG.md", search = "ReleaseDate", replace = "{{date}}" },
+  { file = "CHANGELOG.md", search = "<!-- next-header -->", replace = "<!-- next-header -->\n\n## [Unreleased] - ReleaseDate", exactly = 1 },
+  { file = "CHANGELOG.md", search = "<!-- next-url -->", replace = "<!-- next-url -->\n[Unreleased]: https://github.com/kaspar030/git-cache-rs/compare/{{tag_name}}...HEAD", exactly = 1 },
 ]
