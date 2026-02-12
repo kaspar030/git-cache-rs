@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### 🐛 Bug Fixes
+
+- Use no-cone for sparse checkout
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump MSRV to 1.82
+- *(ci)* Update Debian/Ubuntu container builds
+
+### 💼 Other
+
+- *(deps)* Bump anyhow from 1.0.100 to 1.0.101
+- *(deps)* Bump clap from 4.5.49 to 4.5.58
+- *(deps)* Bump gix-config from 0.46.0 to 0.52.0
+- *(deps)* Bump url from 2.5.7 to 2.5.8
+
 ## [0.2.6] - 2025-10-20
 
 ### 🚀 Features
