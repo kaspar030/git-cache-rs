@@ -434,6 +434,8 @@ impl GitRepo {
         self.git()
             .arg("sparse-checkout")
             .arg("set")
+            .arg("--no-cone")
+            .arg("--skip-checks")
             .args(sparse_paths)
             .status()?
             .success()
