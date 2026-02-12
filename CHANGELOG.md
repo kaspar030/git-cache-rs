@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.2.8] - 2026-02-12
+
 ### 💼 Other
 
 - *(deps)* bump camino to 1.2.2
@@ -148,7 +150,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 29.01.2024
 
 <!-- next-url -->
-[Unreleased]: https://github.com/kaspar030/git-cache-rs/compare/0.2.7...HEAD
+[Unreleased]: https://github.com/kaspar030/git-cache-rs/compare/0.2.8...HEAD
+[0.2.8]: https://github.com/kaspar030/git-cache-rs/compare/0.2.7...0.2.8
 [0.2.7]: https://github.com/kaspar030/git-cache-rs/compare/0.2.6...0.2.7
 [0.2.6]: https://github.com/kaspar030/git-cache-rs/compare/0.2.5...0.2.6
 
