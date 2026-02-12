@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### 💼 Other
+
+- *(deps)* bump camino to 1.2.2
+
 ## [0.2.7] - 2026-02-12
 
 ### 🐛 Bug Fixes
