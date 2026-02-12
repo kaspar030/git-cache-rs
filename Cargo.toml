@@ -1,6 +1,6 @@
 [package]
 name = "git-cache"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 authors = ["Kaspar Schleiser <kaspar@schleiser.de>"]
 rust-version = "1.82.0"                              # `gix-config` crate
