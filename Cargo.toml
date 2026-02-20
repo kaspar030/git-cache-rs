@@ -13,7 +13,7 @@ readme = "README.md"
 include = ["src/**/*", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 camino = { version = "1.2.2", features = ["serde1"] }
 clap = { version = "4.5.60", features = ["cargo", "env", "string"] }
 crossbeam = "0.8.4"
