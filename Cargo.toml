@@ -22,7 +22,7 @@ fd-lock = "4.0.4"
 gix-config = "0.52.0"
 rayon = "1.11.0"
 scopeguard = "1.2.0"
-shellexpand = "3.1.1"
+shellexpand = "3.1.2"
 url = "2.5.8"
 
 [profile.release]
