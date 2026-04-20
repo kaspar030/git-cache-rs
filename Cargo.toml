@@ -1,9 +1,9 @@
 [package]
 name = "git-cache"
 version = "0.2.8"
-edition = "2021"
+edition = "2024"
 authors = ["Kaspar Schleiser <kaspar@schleiser.de>"]
-rust-version = "1.82.0"                              # `gix-config` crate
+rust-version = "1.85.0"                              # clap
 
 description = "A git clone cache"
 repository = "https://github.com/kaspar030/git-cache-rs"
